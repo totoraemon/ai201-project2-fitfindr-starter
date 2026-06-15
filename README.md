@@ -191,13 +191,21 @@ Result
 
 ---
 
+### Stretch Feature: Retry Logic with Fallback
+If `search_listings` returns an empty list `[]`, the agent will not immediately fail. Instead, it enters a fallback state:
+1. It attempts a second search completely omitting the `size` filter (widening the pool).
+2. If that still returns nothing, it attempts a third search by removing both `size` and increasing the `max_price` budget constraint by 50%.
+3. The agent logs these adjustments in `session["error"]` as a warning notification to the user so they know they are viewing fallback results.
+
+---
+
 ## Spec Reflection
 
 **One way the spec helped you during implementation:**
 `planning.md` helped me specify eactly what the three tools would do. In this project, I was able to clearly see the breakdown of what happens when the user inputs a query, how it takes the query begins to build outfit suggestions, and whow to generate teh caption for the user when the suggestion is complete. Using `planning.md` also helped me notice where problems could arise. For example, if my listings were producing errors, I could start my search at the first tool.
 
 **One way your implementation diverged from the spec, and why:**
-With my first iteration of `planning.md`, I imagined that this product would take too long for me to implement any stretch features, so I didn't plan on doing more than the basic application. However, I found that it was a short addition to introduce the case where listings could still be suggested even if they didn't match the user's query entirely. So, I modified my `planning.md` document after completing the base features to account for the stretch feature I wanted to implement.
+With my first iteration of `planning.md`, I imagined that this product would take too long for me to implement any stretch features, so I didn't plan on doing more than the basic application. However, I found that it was a short addition to introduce the case where listings could still be suggested even if they didn't match the user's query entirely. This README document highlights the stretch feature implemented.
 
 ---
 
