@@ -18,6 +18,7 @@ Usage (once implemented):
     print(result["error"])   # None on success
 """
 
+import sys
 from tools import search_listings, suggest_outfit, create_fit_card
 
 
@@ -92,15 +93,84 @@ def run_agent(query: str, wardrobe: dict) -> dict:
     Before writing code, complete the Planning Loop and State Management sections
     of planning.md — your implementation should match what you described there.
     """
-    # TODO: implement the planning loop
-    session = _new_session(query, wardrobe)
-    session["error"] = "Planning loop not yet implemented."
+    # 1. Initialize the session dictionary matching our State Management spec
+    session = {
+        "query": query,
+        "wardrobe": wardrobe,
+        "results": [],
+        "selected_item": None,
+        "outfit_suggestion": "",
+        "fit_card": "",
+        "error": None,
+    }
+
+    # Guard: Check for empty or whitespace-only queries
+    if not query or not query.strip():
+        session["error"] = "Query cannot be empty."
+        return session
+
+    # 2. Extract implicit parameters from the raw user query text
+    # (A basic parser looking for price patterns like 'under $30' or 'under 30')
+    max_price = None
+    price_match = sorted(list(set(map(float, re.findall(r'under\s*\$?\s*(\d+(?:\.\d+)?)', query.lower())))))
+    if price_match:
+        max_price = float(price_match[0])
+
+    # Basic size extraction strategy matching our example test queries
+    size = None
+    size_tokens = ["xxs", "xs", "s", "m", "l", "xl", "xxl"]
+    for token in size_tokens:
+        if f"size {token}" in query.lower() or f" {token} " in f" {query.lower()} ":
+            size = token.upper()
+            break
+
+    # Clean the query string to isolate description keywords
+    description = query
+    if max_price:
+        description = re.sub(r'under\s*\$?\s*\d+(?:\.\d+)?', '', description, flags=re.IGNORECASE)
+    if size:
+        description = re.sub(r'size\s*' + re.escape(size), '', description, flags=re.IGNORECASE)
+    
+    description = " ".join(description.split())
+
+    # 3. Branch 1: Search Execution
+    print(f"[Agent] Executing search_listings with description='{description}', size={size}, max_price={max_price}")
+    search_results = search_listings(description=description, size=size, max_price=max_price)
+    
+    # Check if results list is empty (Branch Path Failure Mode)
+    if not search_results:
+        session["error"] = "No matching items found. Try loosening your search filters (e.g., higher price or broader description)."
+        print("[Agent] Error branch encountered: Zero search listings. Terminating loop early.")
+        return session
+
+    # Commit results and pull top item to state
+    session["results"] = search_results
+    session["selected_item"] = search_results[0]
+    print(f"[Agent] Success: Selected item '{session['selected_item']['title']}'")
+
+    # 4. Branch 2: Outfit Styling
+    print("[Agent] Passing selected_item into suggest_outfit tool...")
+    outfit_text = suggest_outfit(new_item=session["selected_item"], wardrobe=session["wardrobe"])
+    session["outfit_suggestion"] = outfit_text
+
+    # 5. Branch 3: Content Creation
+    if not outfit_text or "Error" in outfit_text:
+        session["fit_card"] = "Error: Cannot generate a fit card because the outfit recommendation is invalid."
+        return session
+
+    print("[Agent] Synthesizing shareable social media caption via create_fit_card...")
+    caption_text = create_fit_card(outfit=session["outfit_suggestion"], new_item=session["selected_item"])
+    session["fit_card"] = caption_text
+
+    print("[Agent] Planning loop successfully finished processing.")
     return session
 
 
 # ── CLI test ──────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
+
+    import re
     from utils.data_loader import get_example_wardrobe, get_empty_wardrobe
 
     print("=== Happy path: graphic tee ===\n")
@@ -121,3 +191,25 @@ if __name__ == "__main__":
         wardrobe=get_example_wardrobe(),
     )
     print(f"Error message: {session2['error']}")
+
+    # Test Case 1: Standard Valid Interaction Walkthrough Flow
+    print("=== RUNNING TEST CASE 1: VALID FLOW ===")
+    test_query = "vintage graphic tee under $30"
+    res_session = run_agent(test_query, get_example_wardrobe())
+    
+    print("\n--- State flow Verification ---")
+    print(f"Selected Item ID: {res_session['selected_item']['id'] if res_session['selected_item'] else None}")
+    print(f"Outfit Generated: {res_session['outfit_suggestion'][:60]}...")
+    print(f"Fit Card Caption: {res_session['fit_card']}\n")
+
+    # Test Case 2: No-Results Early Failure Branch Path
+    print("=== RUNNING TEST CASE 2: NO-RESULTS BRANCH ===")
+    bad_query = "designer ballgown size XXS under $5"
+    fail_session = run_agent(bad_query, get_example_wardrobe())
+    
+    print("\n--- Failure Verification ---")
+    print(f"Session Error Status: {fail_session['error']}")
+    print(f"Should be None (Selected Item): {fail_session['selected_item']}")
+    print(f"Should be empty (Fit Card): '{fail_session['fit_card']}'")
+    assert fail_session["error"] is not None
+    assert fail_session["selected_item"] is None

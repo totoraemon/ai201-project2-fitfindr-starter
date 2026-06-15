@@ -43,8 +43,43 @@ def handle_query(user_query: str, wardrobe_choice: str) -> tuple[str, str, str]:
            string and return it along with session["outfit_suggestion"] and
            session["fit_card"].
     """
-    # TODO: implement this function
-    return "Agent not yet implemented.", "", ""
+    # 1. Guard against an empty query (return early with an error message)
+    if not user_query or not user_query.strip():
+        return "⚠️ Error: What are you looking for? Please input search keywords before clicking find.", "", ""
+
+    # 2. Select the wardrobe dataset dictionary based on user's radio selection option
+    if wardrobe_choice == "Example wardrobe":
+        selected_wardrobe = get_example_wardrobe()
+    else:
+        selected_wardrobe = get_empty_wardrobe()
+
+    # 3. Call run_agent() with the sanitized query text and chosen wardrobe mapping
+    session_state = run_agent(user_query, selected_wardrobe)
+
+    # 4. If session["error"] is populated, map the custom warning to panel 1 and clear out others
+    if session_state.get("error") is not None:
+        error_display = f"❌ No Results Found\n\n{session_state['error']}"
+        return error_display, "", ""
+
+    # 5. Otherwise, parse selected_item data parameters out cleanly into a scannable item display card
+    item = session_state["selected_item"]
+    
+    listing_text = (
+        f"🎯 TITLE: {item.get('title')}\n"
+        f"💰 PRICE: ${item.get('price'):.2f}\n"
+        f"🏷️ BRAND: {item.get('brand') or 'N/A'}\n"
+        f"📏 SIZE: {item.get('size')}\n"
+        f"✨ CONDITION: {item.get('condition')}\n"
+        f"🌐 PLATFORM: {item.get('platform').upper()}\n\n"
+        f"📝 DESCRIPTION: {item.get('description')}"
+    )
+
+    # Return the clean 3-tuple mapped directly to the frontend text box panels
+    return (
+        listing_text, 
+        session_state.get("outfit_suggestion", ""), 
+        session_state.get("fit_card", "")
+    )
 
 
 # ── interface ─────────────────────────────────────────────────────────────────
