@@ -69,15 +69,6 @@ def search_listings(
 
     Before writing code, fill in the Tool 1 section of planning.md.
     """
-    def search_listings(
-        description: str,
-        size: str | None = None,
-        max_price: float | None = None,
-    ) -> list[dict]:
-        """
-        Search the mock listings dataset for items matching the description,
-        optional size, and optional price ceiling.
-        """
     # 1. Load all listings using the helper function
     listings = load_listings()
     filtered_listings = []
@@ -252,11 +243,15 @@ def create_fit_card(outfit: str, new_item: dict) -> str:
 
     client = _get_groq_client()
 
+    # Format price to 2 decimal places for consistent captioning
+    raw_price = new_item.get('price', 0.0)
+    formatted_price = f"{raw_price:.2f}"
+
     # 2. Build a prompt containing item details and the outfit context
     prompt = (
         f"Create a short, shareable social media outfit caption (like Instagram or TikTok) based on this find:\n"
         f"Item Name: {new_item.get('title')}\n"
-        f"Price: ${new_item.get('price')}\n"
+        f"Price: ${formatted_price}\n"
         f"Platform: {new_item.get('platform')}\n"
         f"Outfit Suggestion: {outfit}\n\n"
         f"Guidelines:\n"

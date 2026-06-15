@@ -209,3 +209,11 @@ The agent loop gracefully finishes processing. The Gradio frontend unrolls the s
 - 🛍️ Top listing found: Displays the structured markdown details for the Graphic Tee — 2003 Tour Bootleg Style ($24.00 on depop).
 - 👗 Outfit idea: Displays the full pairing recommendation incorporating the user's baggy jeans and chunky sneakers.
 - ✨ Your fit card: Displays the generation ready for copy-pasting into social feeds.
+
+---
+
+### Stretch Feature: Retry Logic with Fallback
+If `search_listings` returns an empty list `[]`, the agent will not immediately fail. Instead, it enters a fallback state:
+1. It attempts a second search completely omitting the `size` filter (widening the pool).
+2. If that still returns nothing, it attempts a third search by removing both `size` and increasing the `max_price` budget constraint by 50%.
+3. The agent logs these adjustments in `session["error"]` as a warning notification to the user so they know they are viewing fallback results.
